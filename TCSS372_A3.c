@@ -40,8 +40,8 @@
 int main (int argc, char* argv[]){
 
 	
-	//create the CPU
-	struct CPU* myCPU = create_CPU();
+	//create a pointer to a CPU instance 
+	struct CPU *myCPU = create_CPU();
 
 	//while the state is not halt, continue looping through
 	 while(state != HALT){
@@ -79,6 +79,7 @@ int main (int argc, char* argv[]){
 							//printf("FETCH3\n");
 							//PC<- A +1 increment the PC
 							myCPU->PC = myCPU->ALUA+1;
+							myCPU->ALUA = 0;
 							
 							//increment the microstate
 							microstate = FETCH4;
@@ -106,10 +107,10 @@ int main (int argc, char* argv[]){
 					//switch through the appropriate microstate
 					switch(opcode) {
 						case 0x01 :
-							printf("LDI\n");
 							microstate = LDI;
 							DecodeFormat1(myCPU->IR);
 							break;
+//******TODO LD
 						case 0x02 :
 							printf("LD\n");
 							microstate = LD;
@@ -119,6 +120,7 @@ int main (int argc, char* argv[]){
 						//	microstate = ST;
 						//	break;
 						case 0x04 :
+//******TODO ST
 							printf("ST\n");
 							microstate = ST;
 							DecodeFormat2(myCPU->IR);
@@ -169,10 +171,12 @@ int main (int argc, char* argv[]){
 							DecodeFormat3(myCPU->IR);
 							break;
 						case 0x10 :
+//**** TODO BR
 							microstate = BR;
 							DecodeFormat4(myCPU->IR);
 							break;
 						case 0x11 :
+//**** TODO BRZ
 							printf("BRZ\n");
 							microstate = BRZ;
 							DecodeFormat4(myCPU->IR);
@@ -234,6 +238,7 @@ int main (int argc, char* argv[]){
 					 switch(microstate) {
 						case LDI :
 							printf("In the LDI microstate\n");
+							myCPU->registers[RD] = immediate;
 							state = FETCH;	
 							instruction = 0;
 							microstate = EXIT;
@@ -270,24 +275,51 @@ int main (int argc, char* argv[]){
 							break;
 						case ADD :
 							printf("In the ADD microstate\n");
+//****** TODO Overflow check
+							myCPU->ALUA = myCPU->registers[RS1];
+							myCPU->ALUB = myCPU->registers[RS2];
+							myCPU->ALUResult = myCPU->ALUA + myCPU->ALUB;
+							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
 							instruction = 0;
 							microstate = EXIT;
 							break;
 						case SUB :
 							printf("In the SUB microstate\n");
+//****** TODO Overflow check
+							myCPU->ALUA = myCPU->registers[RS1];
+							myCPU->ALUB = myCPU->registers[RS2];
+							myCPU->ALUResult = myCPU->ALUB - myCPU->ALUA;
+							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
 							instruction = 0;
 							microstate = EXIT;
 							break;
 						case AND :
 							printf("In the AND microstate\n");
+							myCPU->ALUA = myCPU->registers[RS1];
+							myCPU->ALUB = myCPU->registers[RS2];
+							myCPU->ALUResult = myCPU->ALUA & myCPU->ALUB;
+							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
 							instruction = 0;
 							microstate = EXIT;
 							break;
 						case OR :
 							printf("In the OR microstate\n");
+							myCPU->ALUA = myCPU->registers[RS1];
+							myCPU->ALUB = myCPU->registers[RS2];
+							myCPU->ALUResult = myCPU->ALUA | myCPU->ALUB;
+							myCPU->registers[RD] = myCPU->ALUResult;
+							state = FETCH;	
+							instruction = 0;
+							microstate = EXIT;
+							break;
+						case NOT :
+							printf("In the NOT microstate\n");
+							myCPU->ALUA = myCPU->registers[RS1];
+							myCPU->ALUResult = ~myCPU->ALUA;
+							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
 							instruction = 0;
 							microstate = EXIT;
@@ -358,15 +390,15 @@ int main (int argc, char* argv[]){
 							instruction = 0;
 							microstate = EXIT;
 							break;
-						
 						case HALT :
 							printf("In the HALT microstate\n");
 							state = HALT;	
 							instruction = 0;
 							microstate = EXIT;
-							break;
+							CPU_Destroy(myCPU);
+							return(0);
 					}
-
+					
 					printDebugMonitor(myCPU);
 					state = FETCH;
 					microstate = EXIT;
@@ -445,13 +477,14 @@ int main (int argc, char* argv[]){
 	void printDebugMonitor(struct CPU *theCPU){
 		int j;
 		printf("\tSC-4 Debug Monitor\n\n");
-		printf("Instruction registers: RD: %d, RS1: %d, RS2: %d\n\n", RD, RS1, RS2);
+		printf("Instruction registers: RD: %d, RS1: %d, RS2: %d\n", RD, RS1, RS2);
+		printf("Immediate: %d\n", immediate);
 		printf("Register File:\t\t\t\t\t Memory Dump:\n");
 		for(j=0; j<17; j++){
 			printf("%d:\t%08X\t\t\t\t 00000000:\t%08X\n", j, theCPU->registers[j], systemMemory[j]);
 		}
 		printf("\n");
-		printf("PC: %08X\t IR: %08X\t SW: %08X\t\n", theCPU->PC, theCPU->IR, 0);
+		printf("PC: %08X\t IR: %08X\t SW: %08X\t\n", theCPU->PC, theCPU->IR, theCPU->SW);
 		printf("MAR: %08X\t MDR: %08X\t ALU.A: %08X\t ALU.B: %08X\t ALU.R: %08X", theCPU->MAR, theCPU->MDR, theCPU->ALUA, theCPU->ALUB, theCPU->ALUResult);
 		
 		printf("\n\n");

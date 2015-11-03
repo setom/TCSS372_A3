@@ -58,6 +58,8 @@ typedef struct CPU{
 	unsigned int MDR;
 	//IR
 	unsigned int IR;
+	//SW, bits 32...28 Condition Flags Z, N, C, O
+	unsigned int SW;
 	//ALU Registers
 	unsigned int ALUA;
 	unsigned int ALUB;
