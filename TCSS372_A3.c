@@ -42,6 +42,9 @@ int main (int argc, char* argv[]){
 	
 	//create a pointer to a CPU instance 
 	struct CPU *myCPU = create_CPU();
+	
+	//load the test program into memory
+	loadProgramToMemory();
 
 	//while the state is not halt, continue looping through
 	 while(state != HALT){
@@ -64,8 +67,12 @@ int main (int argc, char* argv[]){
 						case FETCH2 :
 
 							//scan the hex value that defines instruction and specific variables
-							printf("Enter hex instruction: \n");
-							scanf("%X", &instruction);
+							// printf("Enter hex instruction: \n");
+// 							scanf("%X", &instruction);
+							
+							//fetch the next instruction from memory
+							instruction = systemMemory[myCPU->PC];
+							printf("Next instruction: %08X\n", instruction);
 							
 							//IR <- M[MAR] //input a number from 0-7 representing an instruction
 							myCPU->IR = instruction;
@@ -112,7 +119,6 @@ int main (int argc, char* argv[]){
 							break;
 //******TODO LD
 						case 0x02 :
-							printf("LD\n");
 							microstate = LD;
 							DecodeFormat2(myCPU->IR);
 							break; 
@@ -120,8 +126,6 @@ int main (int argc, char* argv[]){
 						//	microstate = ST;
 						//	break;
 						case 0x04 :
-//******TODO ST
-							printf("ST\n");
 							microstate = ST;
 							DecodeFormat2(myCPU->IR);
 							break;
@@ -138,7 +142,6 @@ int main (int argc, char* argv[]){
 							DecodeFormat1(myCPU->IR);
 							break;
 						case 0x08 :
-							printf("ADD\n");
 							microstate = ADD;
 							DecodeFormat3(myCPU->IR);
 							break;
@@ -177,7 +180,6 @@ int main (int argc, char* argv[]){
 							break;
 						case 0x11 :
 //**** TODO BRZ
-							printf("BRZ\n");
 							microstate = BRZ;
 							DecodeFormat4(myCPU->IR);
 							break;
@@ -251,6 +253,9 @@ int main (int argc, char* argv[]){
 							break;
 						case ST :
 							printf("In the ST microstate\n");
+							myCPU->MDR = myCPU->registers[RS1];
+							myCPU->MAR = myCPU->registers[RD] + immediate;
+							systemMemory[myCPU->MAR] = myCPU->MDR;
 							state = FETCH;	
 							instruction = 0;
 							microstate = EXIT;
@@ -276,8 +281,8 @@ int main (int argc, char* argv[]){
 						case ADD :
 							printf("In the ADD microstate\n");
 //****** TODO Overflow check
-							myCPU->ALUA = myCPU->registers[RS1];
-							myCPU->ALUB = myCPU->registers[RS2];
+							myCPU->ALUA = systemMemory[myCPU->registers[RS1]];
+							myCPU->ALUB = systemMemory[myCPU->registers[RS2]];
 							myCPU->ALUResult = myCPU->ALUA + myCPU->ALUB;
 							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
@@ -287,8 +292,8 @@ int main (int argc, char* argv[]){
 						case SUB :
 							printf("In the SUB microstate\n");
 //****** TODO Overflow check
-							myCPU->ALUA = myCPU->registers[RS1];
-							myCPU->ALUB = myCPU->registers[RS2];
+							myCPU->ALUA = systemMemory[myCPU->registers[RS1]];
+							myCPU->ALUB = systemMemory[myCPU->registers[RS2]];
 							myCPU->ALUResult = myCPU->ALUB - myCPU->ALUA;
 							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
@@ -297,8 +302,8 @@ int main (int argc, char* argv[]){
 							break;
 						case AND :
 							printf("In the AND microstate\n");
-							myCPU->ALUA = myCPU->registers[RS1];
-							myCPU->ALUB = myCPU->registers[RS2];
+							myCPU->ALUA = systemMemory[myCPU->registers[RS1]];
+							myCPU->ALUB = systemMemory[myCPU->registers[RS2]];
 							myCPU->ALUResult = myCPU->ALUA & myCPU->ALUB;
 							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
@@ -307,8 +312,8 @@ int main (int argc, char* argv[]){
 							break;
 						case OR :
 							printf("In the OR microstate\n");
-							myCPU->ALUA = myCPU->registers[RS1];
-							myCPU->ALUB = myCPU->registers[RS2];
+							myCPU->ALUA = systemMemory[myCPU->registers[RS1]];
+							myCPU->ALUB = systemMemory[myCPU->registers[RS2]];
 							myCPU->ALUResult = myCPU->ALUA | myCPU->ALUB;
 							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
@@ -396,13 +401,12 @@ int main (int argc, char* argv[]){
 							instruction = 0;
 							microstate = EXIT;
 							CPU_Destroy(myCPU);
-							return(0);
+							exit(0);
 					}
 					
 					printDebugMonitor(myCPU);
 					state = FETCH;
 					microstate = EXIT;
-					
 				}		
 		}		
 	}
@@ -417,16 +421,21 @@ int main (int argc, char* argv[]){
 	//function to create a CPU struct
 	struct CPU *create_CPU(){
 
-	struct CPU *theCPU = malloc(sizeof(struct CPU));
-	theCPU->PC = 0;
-	theCPU->MAR = 0;
-	theCPU->MDR = 0;
-	theCPU->IR = 0;
-	theCPU->ALUA = 0;
-	theCPU->ALUB = 0;
-	theCPU->ALUResult = 0;
-	
-	return theCPU;
+		struct CPU *theCPU = malloc(sizeof(struct CPU));
+		theCPU->PC = 1;
+		theCPU->MAR = 0;
+		theCPU->MDR = 0;
+		theCPU->IR = 0;
+		theCPU->ALUA = 0;
+		theCPU->ALUB = 0;
+		theCPU->ALUResult = 0;
+		theCPU->registers[0] = 0x00000000;
+		if (theCPU != NULL){
+			return theCPU;
+		} else {
+			printf("Error Creating CPU Object!\n");
+			exit(1);
+		}
 	}
 	
 	//function to destroy a CPU struct
@@ -447,9 +456,9 @@ int main (int argc, char* argv[]){
 	void DecodeFormat2(unsigned int instr){
 		//*** FORMAT 2 ***
 		//to get RD, mask with 0x07800000
-		RD = ((instr & 0x07800000) >> 23);
+		RS1 = ((instr & 0x07800000) >> 23);
 		//to get RS1, mask with 0x00780000
-		RS1 = ((instr & 0x00780000) >> 19);
+		RD = ((instr & 0x00780000) >> 19);
 		//mask the opcode, register and base register, leave the imm.
 		immediate = (instruction & 0x0007FFFF);
 	}
@@ -475,13 +484,23 @@ int main (int argc, char* argv[]){
 	
 	//function to display the debug monitor
 	void printDebugMonitor(struct CPU *theCPU){
-		int j;
+		int j, k;
 		printf("\tSC-4 Debug Monitor\n\n");
 		printf("Instruction registers: RD: %d, RS1: %d, RS2: %d\n", RD, RS1, RS2);
 		printf("Immediate: %d\n", immediate);
 		printf("Register File:\t\t\t\t\t Memory Dump:\n");
+		k = theCPU->PC-5;
 		for(j=0; j<17; j++){
-			printf("%d:\t%08X\t\t\t\t 00000000:\t%08X\n", j, theCPU->registers[j], systemMemory[j]);
+				printf("%d:\t%08X\t\t\t\t ", j, theCPU->registers[j]);
+				if (k < 0) {
+					printf("        --------:\t--------");
+				} else if (k == theCPU->PC-1){
+					printf("PC----> %08d:\t%08X", k, systemMemory[k]);
+				} else {
+					printf("        %08d:\t%08X", k, systemMemory[k]);
+				}
+				printf("\n");
+				k++;
 		}
 		printf("\n");
 		printf("PC: %08X\t IR: %08X\t SW: %08X\t\n", theCPU->PC, theCPU->IR, theCPU->SW);
@@ -494,5 +513,78 @@ int main (int argc, char* argv[]){
 		//getch() is not available on OSX, this workaround was found on stack overflow
 		// http://stackoverflow.com/questions/267250/equivalent-to-windows-getch-for-mac-linux-crashes
 		system("read -n1 -p ' ' key"); 
+		printf("\n");
 	
+	}
+	
+	//prototype for loading the program hex values into memory
+	void loadProgramToMemory(){
+		
+		//Memory Diagram
+		////////////////
+		//    LOW     //
+		//            //
+		//  my code   //
+		//            //
+		//------------//
+		// literals   // 
+		//------------//
+		//            //
+		//            //
+		//    heap    //
+		//            //
+		//------------//
+		//            // 
+		//            //
+		//   stack    //
+		//            //
+		//    HIGH    // 
+		////////////////
+		
+		//hard code the program
+		
+		//LDI R1, Data1
+		systemMemory[1] = 0x08800014;
+		//LDI R2, Data 2
+		systemMemory[2] = 0x09000015;
+		//LDI R5, @result
+		systemMemory[3] = 0x0A800016;
+		//ADD R3, R1, R2
+		systemMemory[4] = 0x41890000;
+		//ST R3, R5 #0
+		systemMemory[5] = 0x21A80000;
+		//OR R3, R1, R2
+		systemMemory[6] = 0x59890000;
+		//ST R3, R5, #1
+		systemMemory[7] = 0x21A80001;
+		//AND R3, R1, R2
+		systemMemory[8] = 0x53120000;
+		//ST R3, R5, #2
+		systemMemory[9] = 0x21A80002;
+		//LDI R1, #1
+		systemMemory[10] = 0x08800001;
+		//LDI R2, #1
+		systemMemory[11] = 0x09000001;
+		//SUB R3,R1,R2
+		systemMemory[12] = 0x49890000;
+		//BRZ Finish
+		systemMemory[13] = 0x88D00000;
+		
+		//FINAL BAIL OUT HALT
+		systemMemory[15] = 0xE8000000;
+		
+		//Literals (Data locations)
+		//DATA1
+		systemMemory[20] = 0x11111111;
+		//DATA2
+		systemMemory[21] = 0x11111111;
+		//RESUlT
+		systemMemory[22] = 0x33333333;
+		//Three other results
+		systemMemory[23] = 0x44444444;
+		systemMemory[24] = 0x44444444;
+		systemMemory[25] = 0x44444444;
+		//FINISH
+		systemMemory[26] = 0x55555555;
+		
 	}

@@ -74,13 +74,14 @@ unsigned int RS1 = 0; 	//source register 1
 unsigned int RS2 = 0; 	//source register 2
 unsigned int RB = 0; 	//base register
 unsigned int immediate = 0;
+
+unsigned int instruction = 0;
+unsigned int opcode = 0;
+
 	
 //initialize state
 int state = FETCH;
 int microstate = FETCH1;
-	
-unsigned int instruction = 0;
-unsigned int opcode = 0;
 	
 //array of system memory
 unsigned int systemMemory[100];
@@ -102,3 +103,6 @@ void DecodeFormat4(unsigned int instr);
 
 //prototype for printing the debug monitor
 void printDebugMonitor(struct CPU *theCPU);
+
+//prototype for loading the program hex values into memory
+void loadProgramToMemory();
