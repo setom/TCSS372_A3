@@ -74,6 +74,7 @@ unsigned int RS1 = 0; 	//source register 1
 unsigned int RS2 = 0; 	//source register 2
 unsigned int RB = 0; 	//base register
 unsigned int immediate = 0;
+unsigned int SP = 0; 	//stack pointer
 
 unsigned int instruction = 0;
 unsigned int opcode = 0;

@@ -4,31 +4,12 @@
 	TCSS 372
 	Assignment 3
 	
+	Thanks to Geoffrey for helping me to unravel the masks for the opcodes
+	
 	Converting the controller to a new ISA
 	
 */
 
-
-//*******NOTES*****
-/*
-	BR Flags are zeroed by the ALU each time it starts
-	
-	Flags are set appropriately on exit from the ALU
-	
-	
-	Overflow:
-	1 - If the signs of the two operands are DIFFERENT before the op, there is NEVER OVERFLOW
-	2 - If the signs are the same before the op, IF THE OUTPUT SIGN IS OPPOSITE, then there MUST HAVE BEEN OVERFLOW (therefore, set overflow)
-	 
-	Carry: 
-	adding 32 bits and 32 bits, you need to check for carry (overflow)
-	
-	Branching: 
-	When you are incrementing PC and offset etc, 
-		DO NOT USE THE ADD INSTRUCTION, because that will reset the branch condition flags
-		& we want to preserve those flags
-		
-*/
 
 
 #include <stdio.h>
@@ -117,7 +98,6 @@ int main (int argc, char* argv[]){
 							microstate = LDI;
 							DecodeFormat1(myCPU->IR);
 							break;
-//******TODO LD
 						case 0x02 :
 							microstate = LD;
 							DecodeFormat2(myCPU->IR);
@@ -174,12 +154,10 @@ int main (int argc, char* argv[]){
 							DecodeFormat3(myCPU->IR);
 							break;
 						case 0x10 :
-//**** TODO BR
 							microstate = BR;
 							DecodeFormat4(myCPU->IR);
 							break;
 						case 0x11 :
-//**** TODO BRZ
 							microstate = BRZ;
 							DecodeFormat4(myCPU->IR);
 							break;
@@ -355,6 +333,11 @@ int main (int argc, char* argv[]){
 							break;
 						case BRZ :
 							printf("In the BRZ microstate\n");
+							if(myCPU->registers[RD] == 0){
+								myCPU->PC = myCPU->PC + immediate;
+							} else {
+								myCPU->PC--;
+							}
 							state = FETCH;	
 							instruction = 0;
 							microstate = EXIT;
@@ -477,8 +460,9 @@ int main (int argc, char* argv[]){
 	//function to decode format 4 instructions
 	void DecodeFormat4(unsigned int instr){
 		// *** FORMAT 4 ***
-		//mask to preserve bits 27-0
-		immediate = (instruction & 0x07FFFFFFF);
+		//mask to preserve bits 24-0
+		immediate = (instruction & 0x07FFFFFF);
+		printf("IMMEDIATE: %X", immediate);
 	}
 
 	
@@ -567,24 +551,34 @@ int main (int argc, char* argv[]){
 		systemMemory[11] = 0x09000001;
 		//SUB R3,R1,R2
 		systemMemory[12] = 0x49890000;
-		//BRZ Finish
-		systemMemory[13] = 0x88D00000;
+		//BRZ Finish (Branch to Finish if zero)
+		systemMemory[13] = 0x8800000C;
+		//LDI R2, #10
+		systemMemory[14] = 0x09000010;
+		//ST R2, R5, #3
+		systemMemory[15] = 0x21298000;
+		//BR Done
+		systemMemory[16] = 0x8000000C;
 		
-		//FINAL BAIL OUT HALT
-		systemMemory[15] = 0xE8000000;
 		
 		//Literals (Data locations)
 		//DATA1
-		systemMemory[20] = 0x11111111;
+		systemMemory[20] = 0x00000064;
 		//DATA2
-		systemMemory[21] = 0x11111111;
+		systemMemory[21] = 0x0000000A;
 		//RESUlT
 		systemMemory[22] = 0x33333333;
-		//Three other results
+		//Three other results accessed by offsets
 		systemMemory[23] = 0x44444444;
 		systemMemory[24] = 0x44444444;
 		systemMemory[25] = 0x44444444;
 		//FINISH
-		systemMemory[26] = 0x55555555;
+		//LDI R2, 0x10
+		systemMemory[26] = 0x09000020;
+		//ST R2, R5, #3
+		systemMemory[27] = 0x21280003;
+		//DONE
+		systemMemory[28] = 0xE8000000;
+		
 		
 	}
