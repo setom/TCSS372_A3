@@ -10,6 +10,12 @@
 	
 */
 
+/*Note about SW Overflow:
+Overflow:
+	1 - If the signs of the two operands are DIFFERENT before the op, there is NEVER OVERFLOW
+	2 - If the signs are the same before the op, IF THE OUTPUT SIGN IS OPPOSITE, then there MUST HAVE BEEN OVERFLOW (therefore, set overflow)
+	 
+*/
 
 
 #include <stdio.h>
@@ -258,10 +264,45 @@ int main (int argc, char* argv[]){
 							break;
 						case ADD :
 							printf("In the ADD microstate\n");
-//****** TODO Overflow check
+							//reset the flags
+							myCPU->SW = 0x00000000;
 							myCPU->ALUA = systemMemory[myCPU->registers[RS1]];
 							myCPU->ALUB = systemMemory[myCPU->registers[RS2]];
-							myCPU->ALUResult = myCPU->ALUA + myCPU->ALUB;
+							//check the signs (most significant bit, 2s compliment)
+							//if the signs are 1s
+							if((myCPU->ALUA & 0x80000000) && (myCPU->ALUB & 0x80000000)){
+								//do the add
+								myCPU->ALUResult = myCPU->ALUA + myCPU->ALUB;
+								//if the result is not negative, there must have been overflow
+								if(myCPU->ALUResult & 0x00000000){
+									//set the carry flag
+									myCPU->SW = 0x20000000;
+								}
+							} 
+							//do the same for negatives
+							else if ((myCPU->ALUA | 0x00000000) && (myCPU->ALUB | 0x00000000)){
+								//do the add
+								myCPU->ALUResult = myCPU->ALUA + myCPU->ALUB;
+								//if the result is not negative, there must have been overflow
+								if(myCPU->ALUResult & 0x00000000){
+									//set the carry flag
+									myCPU->SW = 0x20000000;
+								}
+							}
+							//else the signs must have been different, therefore never overflow
+							else {
+								myCPU->ALUResult = myCPU->ALUA + myCPU->ALUB;
+								myCPU->SW = 0x00000000;
+							}
+							//set the Z flag if appropriate
+							if(myCPU->ALUResult == 0x00000000){
+								myCPU->SW += 0x80000000;
+							}
+							//set the N flag if appropriate
+							if(myCPU->ALUResult & 0x80000000){
+								myCPU->SW += 0x40000000;
+							}
+							//set the output register on the way out
 							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
 							instruction = 0;
@@ -269,10 +310,45 @@ int main (int argc, char* argv[]){
 							break;
 						case SUB :
 							printf("In the SUB microstate\n");
-//****** TODO Overflow check
+							//reset the flags
+							myCPU->SW = 0x00000000;
 							myCPU->ALUA = systemMemory[myCPU->registers[RS1]];
 							myCPU->ALUB = systemMemory[myCPU->registers[RS2]];
-							myCPU->ALUResult = myCPU->ALUB - myCPU->ALUA;
+							//check the signs (most significant bit, 2s compliment)
+							//if the signs are 1s
+							if((myCPU->ALUA & 0x80000000) && (myCPU->ALUB & 0x80000000)){
+								//do the sub
+								myCPU->ALUResult = myCPU->ALUB - myCPU->ALUA;
+								//if the result is not negative, there must have been overflow
+								if(myCPU->ALUResult & 0x00000000){
+									//set the overflow flag
+									myCPU->SW = 0x10000000;
+								}
+							} 
+							//do the same for negatives
+							else if ((myCPU->ALUA | 0x00000000) && (myCPU->ALUB | 0x00000000)){
+								//do the add
+								myCPU->ALUResult = myCPU->ALUB - myCPU->ALUA;
+								//if the result is not negative, there must have been overflow
+								if(myCPU->ALUResult & 0x00000000){
+									//set the overflow flag
+									myCPU->SW = 0x10000000;
+								}
+							}
+							//else the signs must have been different, therefore never overflow
+							else {
+								myCPU->ALUResult = myCPU->ALUA - myCPU->ALUB;
+								myCPU->SW = 0x00000000;
+							}
+							//set the Z flag if appropriate
+							if(myCPU->ALUResult == 0x00000000){
+								myCPU->SW += 0x80000000;
+							}
+							//set the N flag if appropriate
+							if(myCPU->ALUResult & 0x80000000){
+								myCPU->SW += 0x40000000;
+							}
+							//set the output register on the way out
 							myCPU->registers[RD] = myCPU->ALUResult;
 							state = FETCH;	
 							instruction = 0;
@@ -333,11 +409,9 @@ int main (int argc, char* argv[]){
 							break;
 						case BRZ :
 							printf("In the BRZ microstate\n");
-							if(myCPU->registers[RD] == 0){
+							if(myCPU->SW == 0x80000000){
 								myCPU->PC = myCPU->PC + immediate;
-							} else {
-								myCPU->PC--;
-							}
+							} 
 							state = FETCH;	
 							instruction = 0;
 							microstate = EXIT;
@@ -432,7 +506,8 @@ int main (int argc, char* argv[]){
 		//to get RD, mask with 0x07800000
 		RD = ((instr & 0x07800000) >> 23);
 		//mask the opcode and register, leave only the immediate
-		immediate = (instr & 0x007FFFFF);
+		// immediate = (instr & 0x007FFFFF);
+		immediate = signExtend24(instr);
 	}
 	
 	//function to decode format 2 instructions
@@ -443,7 +518,8 @@ int main (int argc, char* argv[]){
 		//to get RS1, mask with 0x00780000
 		RD = ((instr & 0x00780000) >> 19);
 		//mask the opcode, register and base register, leave the imm.
-		immediate = (instruction & 0x0007FFFF);
+		//immediate = (instruction & 0x0007FFFF);
+		immediate = signExtend19(instr);
 	}
 	
 	//function to decode format 3 instructions
@@ -461,9 +537,40 @@ int main (int argc, char* argv[]){
 	void DecodeFormat4(unsigned int instr){
 		// *** FORMAT 4 ***
 		//mask to preserve bits 24-0
-		immediate = (instruction & 0x07FFFFFF);
-		printf("IMMEDIATE: %X", immediate);
+		//immediate = (instruction & 0x07FFFFFF);
+		immediate = signExtend27(instr);
 	}
+	
+	//function to sign extend the immediate 27 bit
+	int signExtend27(unsigned int instr){
+		if (instr & 0x04000000){
+			instr |= 0xF8000000;
+		} else {
+			instr = instr & 0x07FFFFFF;
+		}
+		return instr;
+	}
+	
+	//function to sign extend the immediate 24 bit
+	int signExtend24(unsigned int instr){
+		if(instr & 0x00400000){
+			instr |= 0xff800000;
+		} else {
+			instr = instr & 0x007FFFFF; 
+		}
+		return instr;
+	}
+	
+	//function to sign extend the immediate 19 bit
+	int signExtend19(unsigned int instr){
+		if (instr & 0x00040000){
+			instr |= 0xFFF80000;
+		} else {
+			instr = instr & 0x0007FFFF;
+		}
+		return instr;
+	}
+	
 
 	
 	//function to display the debug monitor
@@ -528,7 +635,7 @@ int main (int argc, char* argv[]){
 		//hard code the program
 		
 		//LDI R1, Data1
-		systemMemory[1] = 0x08800014;
+		systemMemory[1] = 0x0880014;
 		//LDI R2, Data 2
 		systemMemory[2] = 0x09000015;
 		//LDI R5, @result
@@ -577,7 +684,7 @@ int main (int argc, char* argv[]){
 		systemMemory[26] = 0x09000020;
 		//ST R2, R5, #3
 		systemMemory[27] = 0x21280003;
-		//DONE
+		//DONE (HALT)
 		systemMemory[28] = 0xE8000000;
 		
 		

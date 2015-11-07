@@ -73,7 +73,7 @@ unsigned int RD = 0; 	//destination register
 unsigned int RS1 = 0; 	//source register 1
 unsigned int RS2 = 0; 	//source register 2
 unsigned int RB = 0; 	//base register
-unsigned int immediate = 0;
+int immediate = 0;		//signed immediate to allow for +/- traversals
 unsigned int SP = 0; 	//stack pointer
 
 unsigned int instruction = 0;
@@ -107,3 +107,13 @@ void printDebugMonitor(struct CPU *theCPU);
 
 //prototype for loading the program hex values into memory
 void loadProgramToMemory();
+
+//prototype for sign extension of 27 bit imm
+int signExtend27(unsigned int instr);
+
+//prototype for sign extension 24 bit imm
+int signExtend24(unsigned int instr);
+
+//prototype for sign extension 19 bit imm
+int signExtend19(unsigned int instr);
+
